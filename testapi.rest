@@ -1,0 +1,38 @@
+
+POST http://127.0.0.1:3333/mergeVideos?desiredVideoWidth=1280&desiredVideoHeight=960
+Content-type: application/json
+Accept: application/json
+
+{ 
+	"videoObjects":
+	[ 
+		{ "id": 0,
+		    "url":
+		     "http://127.0.0.1:3333/tempBapuZimidarJassiGillReplayReturnOfMelodyLatestPunjabiSongs/0_part.mp4",
+		    "isChecked": true,
+		    "x": 100,
+		    "y": 150,
+		    "width": 200,
+		    "height": 150,
+		    "videoWidth": 640,
+		    "videoHeight": 360,
+		    "videoAspectRatio": "16:9",
+		    "startTime": "00:00:00",
+		    "endTime": "00:00:15" 
+		},{
+			"id": 0,
+		    "url":
+		     "http://127.0.0.1:3333/tempBapuZimidarJassiGillReplayReturnOfMelodyLatestPunjabiSongs/1_part.mp4",
+		    "isChecked": true,
+		    "x": 300,
+		    "y": 150,
+		    "width": 400,
+		    "height": 250,
+		    "videoWidth": 640,
+		    "videoHeight": 360,
+		    "videoAspectRatio": "16:9",
+		    "startTime": "00:00:16",
+		    "endTime": "00:00:35" 
+		}
+    ]
+}
