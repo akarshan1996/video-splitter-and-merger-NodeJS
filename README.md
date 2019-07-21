@@ -17,6 +17,7 @@ The output should look something like this:
 ### `ffmpeg version 4.0.3-1~18.04.york0 Copyright (c) 2000-2018 the FFmpeg developers built with gcc 7 (Ubuntu 7.3.0-27ubuntu1~18.04)`
 
 
+### Run this command to install required packages `sudo apt-get install -y build-essential libxi-dev libglu1-mesa-dev libglew-dev pkg-config`
 
 
 ## Available Scripts

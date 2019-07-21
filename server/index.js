@@ -1,6 +1,3 @@
-//To increase watchers echo fs.inotify.max_user_watches=582222 | sudo tee -a /etc/sysctl.conf && sudo sysctl -p
-//http://127.0.0.1:3333/upload?segmentSetting=Number%20of%20segments&segmentValue=3&videoPath=/home/cube/React_Projects/Video_Engine/server/public
-// /BapuZimidarJassiGillReplayReturnOfMelodyLatestPunjabiSongs/BapuZimidarJassiGillReplayReturnOfMelodyLatestPunjabiSongs.mp4
 const express = require('express')
 const cors = require('cors')
 const ytdl = require('ytdl-core')
@@ -11,20 +8,19 @@ const path = require('path')
 var multer = require('multer')    //handle files
 var moment = require('moment')
 const _ = require('underscore')
-var bodyParser = require('body-parser');
+var bodyParser = require('body-parser')
 
 var ffmpegPath = require('@ffmpeg-installer/ffmpeg').path
 var ffmpeg = require('fluent-ffmpeg')
+var proc = new ffmpeg()
 ffmpeg.setFfmpegPath(ffmpegPath)
 const ffprobePath = require('@ffprobe-installer/ffprobe').path
 ffmpeg.setFfprobePath(ffprobePath)
 
-//var command = ffmpeg()
-//var probe = require('node-ffprobe')
 app.use(bodyParser.json()) // support json encoded bodies
 app.use(bodyParser.urlencoded({ extended: true })) // support encoded bodies
 app.use(cors())
-app.use(function(req, res, next) {
+app.use(function (req, res, next) {
   res.header("Access-Control-Allow-Origin", "*")
   res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept")
   next()
@@ -70,43 +66,10 @@ function uploadFile(req, res) {
   })
 }
 
-function mergeVideo(){
-
-  /*var cmd = ffmpeg({priority: 20}).videoCodec('h264').fps(29.7)
-		.on('error', function(err) {
-			console.log('An error occurred: ' + err.message);
-			resolve()
-		})
-		.on('end', function() {
-			console.log(filename + ': Processing finished !');
-			resolve()
-		});
-
-		for (var i = 0; i < files.length; i++)
-		{
-			cmd.input(files[i]);
-		}
-	
-		cmd.mergeToFile(folder + "/" + filename, tempFolder)*/
-
-
-  ffmpeg('/path/to/part1.avi')
-  .input('/path/to/part2.avi')
-  
-  .on('error', function(err) {
-    console.log('An error occurred: ' + err.message);
-  })
-  .on('end', function() {
-    console.log('Merging finished !');
-  })
-  .mergeToFile('/path/to/merged.avi', '/path/to/tempDir')
-
-}
-
 const unlink = path =>
   new Promise((resolve, reject) =>
     fs.unlink(path, err => (err ? reject(err) : resolve()))
-)
+  )
 
 function trimVideo(videoSegmentsFolder) {
   let promises = []
@@ -153,165 +116,143 @@ async function splitVideo() {
       fs.mkdirSync(videoSegmentsFolder)
       console.log("temporary directory created for storing splitted videos")
     }
+    let splittedVideoPaths = await Promise.all(trimVideo(videoSegmentsFolder))
+    splittedVideoPaths = splittedVideoPaths.filter(path => path != false)
 
-    return await Promise.all(trimVideo(videoSegmentsFolder))
+    return splittedVideoPaths
   } catch (err) {
     throw Error("some error occurred in crop video")
   }
 }
 
+const cropScenes = video => {
+  const videoPath = path.join(__dirname, "public", video.url.substring(21, video.url.length))    //remove http://127.0.0.1:3333/
+  const saveVideoToPath = path.join(__dirname, "public", "editedtemp" + video.url.substring(21, video.url.length))  //saving video after cropping to edited temp
 
-/*function cropScenes(videoObjects){
-  let promises = []
-  videoObjects.map((video, index) => {
-    const videoPath = path.join(__dirname, video.url.substring(20, video.url.length))
-    const saveVideoToPath = path.join(__dirname,"public","editedtemp"+ video.url.substring(20, video.url.length))
-    croppedVideoUrl.push(videoPath)
+  const saveVideoToPathFolder = path.join(__dirname, "public", "editedtemp" + video.url.substring(21, video.url.lastIndexOf("/")))
+  const editedTempFolder = saveVideoToPathFolder.substring(0, saveVideoToPathFolder.lastIndexOf("/"))
 
-    console.log(`${index} x: ${video.x} y: ${video.y} st: ${video.startTime} et: ${video.endTime} path: ${videoPath}`)
+  let startTime = moment(video.startTime, 'HH:mm:ss').diff(moment().startOf('day'), 'seconds')    //Start video from this time
+  let endTime = moment(video.endTime, 'HH:mm:ss').diff(moment().startOf('day'), 'seconds')  //End video at this time
+  //const out = path.join(__dirname,"public", `${Math.random().toString(13).slice(2)}.ts`)
+  let cropCommand = 'crop=' + video.width + ':' + video.height + ':' + video.x + ':' + video.y
 
-    let _ = new Promise((resolve, reject) => {
+  //console.log(videoPath, "   ",saveVideoToPath, `${desiredVideoWidth}x${desiredVideoHeight} and command is ${cropCommand}`)
+
+  if (!fs.existsSync(editedTempFolder)) {
+    fs.mkdirSync(editedTempFolder, 0777)
+    if (!fs.existsSync(saveVideoToPathFolder)) {
+      //console.log("folder inside edit temp")
+      fs.mkdirSync(saveVideoToPathFolder, 0777)
+    }
+  }
+
+  if (((video.x + video.width) > video.videoWidth) || ((video.y + video.height) > video.videoHeight)) {   //pad the video with x,y =0
+    console.log("inside padding")
+    return new Promise((resolve, reject) => {
       ffmpeg(videoPath)       //Input Video File
-        // .output(path.join(__dirname, "final" + "output.mp4"))        // Output File
-        .audioCodec('libmp3lame')     // Audio Codec
-        .videoCodec('libx264')        // Video Codec
-        .setStartTime(parseFloat(video.startTime))       // Start Position
-        .setDuration(parseFloat(video.endTime))        // Duration
-        .videoFilters(
-          {
-            filter: 'filter2',
-            options: { w: video.width, h: video.height, x: video.x, y: video.y, color: 'black' }
-          }
-        )
-        // .size('640x480').autopad(true, 'black')
+        //.inputFormat("mp4")
+        .audioCodec("libmp3lame")     // Audio Codec
+        .videoCodec("libx264")        // Video Codec
+        .setStartTime(startTime)       // Start Position
+        .setDuration(endTime - 1)        // Duration
+        .size(`'${desiredVideoWidth}x${desiredVideoHeight}'`)     //this command takes the input of desiredwidth and desiredheight in main video aspect ratio
+        .videoFilters('pad=' + parseInt(desiredVideoWidth) + ':' + parseInt(desiredVideoHeight) + ':' + parseInt(0) + ':' + parseInt(0) + ':violet')      //pads the video with the color and places it on the given x,y co-ordinate (only works if provided resolution is greatere than main)
+        .videoFilters(cropCommand)
         .on('end', (err) => {
           if (!err) {
-            console.log(`Conversion Done for `)
+            console.log(`Scenes Cropped for ${video.url}`)
             resolve(saveVideoToPath)
           }
         })
         .on('error', (err) => {
-          console.log('error: ', err)
+          console.log('Inside padding video:', err)
           resolve(false)
         })
         .save(saveVideoToPath)
-
     })
-    promises.push(_)
+  } else {        //crop the video with the height, width, x, y 
+    console.log("inside cropping")
+    return new Promise((resolve, reject) => {
+      ffmpeg(videoPath)       //Input Video File
+        .audioCodec("libmp3lame")     // Audio Codec
+        .videoCodec("libx264")        // Video Codec
+        .setStartTime(startTime)       // Start Position
+        .setDuration(endTime - 1)        // Duration
+        .size(`'${desiredVideoWidth}x${desiredVideoHeight}'`)     //this command takes the input of desiredwidth and desiredheight in main video aspect ratio
+        .videoFilters(cropCommand)      //crops the part of the video by locaing x and y
+        .on('end', (err) => {
+          if (!err) {
+            console.log(`Scenes Cropped for ${video.url}`)
+            resolve(saveVideoToPath)
+          }
+        })
+        .on('error', (err) => {
+          console.log('Inside cropping video:', err)
+          //await unlink(editedTempFolder)
+          resolve(false)
+        })
+        .save(saveVideoToPath)
+    })
+  }
+
+}
+
+function writeFile(pathTextFile, data) {
+  return new Promise((resolve, reject) => {
+    fs.writeFile(pathTextFile, data, (err) => {
+      if (err) return reject('File writing error' + err)
+      //console.log("written successfully")
+      resolve(true)
+    })
   })
-  return promises
-}*/
-
-const cropScenes = video => {
-    const videoPath = path.join(__dirname, "public",video.url.substring(21, video.url.length))    //remove http://127.0.0.1:3333/
-    const saveVideoToPath = path.join(__dirname, "public", "editedtemp" + video.url.substring(21, video.url.length))  //saving video after cropping to edited temp
-
-    const saveVideoToPathFolder = path.join(__dirname, "public", "editedtemp" + video.url.substring(21, video.url.lastIndexOf("/")))
-    const editedTempFolder = saveVideoToPathFolder.substring(0, saveVideoToPathFolder.lastIndexOf("/"))
-
-    let startTime = moment(video.startTime, 'HH:mm:ss').diff(moment().startOf('day'), 'seconds')    //Start video from this time
-    let endTime = moment(video.endTime, 'HH:mm:ss').diff(moment().startOf('day'), 'seconds')  //End video at this time
-    //const out = path.join(__dirname,"public", `${Math.random().toString(13).slice(2)}.ts`)
-    let cropCommand = 'crop='+video.width+':'+video.height+':'+video.x+':'+video.y
-    
-    console.log(videoPath, "   ",saveVideoToPath, `${desiredVideoWidth}x${desiredVideoHeight} and command is ${cropCommand}`)
-
-    if (!fs.existsSync(editedTempFolder)) {
-      fs.mkdirSync(editedTempFolder, 0777)
-      if (!fs.existsSync(saveVideoToPathFolder)) {
-        //console.log("folder inside edit temp")
-        fs.mkdirSync(saveVideoToPathFolder, 0777 )
-      }
-    }
-    
-    if( ((video.x + video.width) > video.videoWidth) || ((video.y + video.height) > video.videoHeight)){   //pad the video with x,y =0
-      console.log("inside padding")
-      return new Promise((resolve, reject) => {
-        ffmpeg(videoPath)       //Input Video File
-          //.outputOptions("-filter_complex", "[0:v:0][0:a:0]concat=n=1:v=1:a=1[V][A]", "-map", "[V]", "-map", "[A]")
-          //.inputFormat("mp4")
-          //.output(path.join(__dirname, "final" + "output.mp4"))        // Output File
-          .audioCodec("libmp3lame")     // Audio Codec
-          .videoCodec("libx264")        // Video Codec
-          .setStartTime(startTime)       // Start Position
-          .setDuration(endTime-1)        // Duration
-          .size(`'${desiredVideoWidth}x${desiredVideoHeight}'`)     //this command takes the input of desiredwidth and desiredheight in main video aspect ratio
-          .videoFilters('pad='+parseInt(desiredVideoWidth)+':'+parseInt(desiredVideoHeight) +':'+parseInt(0) +':'+parseInt(0)+':violet')      //pads the video with the color and places it on the given x,y co-ordinate (only works if provided resolution is greatere than main)
-          .videoFilters(cropCommand)
-          .on('end', (err) => {
-            if (!err) {
-              console.log(`Scenes Cropped for ${video.url}`)
-              resolve(saveVideoToPath)
-            }
-          })
-          .on('error', (err) => {
-            console.log('Inside padding video:', err)
-            //await unlink(editedTempFolder)
-            resolve(false)
-          })
-          .save(saveVideoToPath)
-      })
-    }else{        //crop the video with the height, width, x, y 
-      console.log("inside cropping")
-      return new Promise((resolve, reject) => {
-        ffmpeg(videoPath)       //Input Video File
-          //.outputOptions("-filter_complex", "[0:v:0][0:a:0]concat=n=1:v=1:a=1[V][A]", "-map", "[V]", "-map", "[A]")
-          //.inputFormat("mp4")
-          //.output(path.join(__dirname, "final" + "output.mp4"))        // Output File
-          .audioCodec("libmp3lame")     // Audio Codec
-          .videoCodec("libx264")        // Video Codec
-          .setStartTime(startTime)       // Start Position
-          .setDuration(endTime-1)        // Duration
-          .size(`'${desiredVideoWidth}x${desiredVideoHeight}'`)     //this command takes the input of desiredwidth and desiredheight in main video aspect ratio
-          .videoFilters(cropCommand)      //pads the video with the color and places it on the given x,y co-ordinate (only works if provided resolution is greatere than main)
-          //.videoFilters("-filter:v", "crop=in_w:480")
-          //.videoFilters('pad='+parseInt(videoDesiredWidth)+':'+parseInt(videoDesiredHeight) +':'+parseInt(video.x) +':'+parseInt(video.y)+':violet')      //pads the video with the color and places it on the given x,y co-ordinate (only works if provided resolution is greatere than main)
-          .on('end', (err) => {
-            if (!err) {
-              console.log(`Scenes Cropped for ${video.url}`)
-              resolve(saveVideoToPath)
-            }
-          })
-          .on('error', (err) => {
-            console.log('Inside cropping video:', err)
-            //await unlink(editedTempFolder)
-            resolve(false)
-          })
-          .save(saveVideoToPath)
-      })
-    }
-    
 }
 
 async function mergeVideoAsync(videoObjects) {
   try {
-    let complexFilter = '', mapFilterV = "\"[outv]\"", mapFilterA = "\"[outa]\"", finalVideoPath = ''
-    finalVideoPath = path.join(__dirname, "public", "finalVideo" )
+    let finalVideoPath = path.join(__dirname, "public", "finalVideo" + Math.random().toString(10).slice(2))
+    const pathTextFile = path.join(__dirname, "public", "finalVideotxt" + Math.random().toString(10).slice(2) + ".txt")
+    let data = 'ffconcat version 1.0\n'
+    //if (!fs.existsSync(finalVideoPath)) fs.mkdirSync(finalVideoPath)
 
-    const croppedVideoPaths =  await Promise.all(videoObjects.map(cropScenes))
-    //const namesString = croppedVideoPaths.join('|')
-
-    for(let i =0; i<croppedVideoPaths.length; i++){
-      complexFilter += "\"["+i+":v:0]["+i+":a:0]"
+    let croppedVideoPaths = await Promise.all(videoObjects.map(cropScenes))
+    if (croppedVideoPaths === undefined || croppedVideoPaths === "") {
+      throw new Error('Error in cropping')
     }
-    complexFilter += "concat=n="+croppedVideoPaths.length+":v=1:a=1[v][a][outv][outa]\""
-    return croppedVideoPaths
+    croppedVideoPaths.filter(path => path != false)
 
-    /*await new Promise((resolve, reject) =>
-      ffmpeg(`concat:${namesString}`)
-        //.outputOptions('-c', 'copy', '-bsf:a', 'aac_adtstoasc','-s', videoDesiredWidth+'x'+videoDesiredHeight)
-        .outputOptions('-filter_complex', complexFilter , '-map', mapFilterV,'-map', mapFilterA)
-        .size(`'${videoDesiredWidth}x${videoDesiredHeight}'`)
-        .output(finalVideoPath)
-        .on('end', resolve)
-        .on('error', reject)
-        .run()
-      )*/
+    console.log(croppedVideoPaths)
+    /*croppedVideoPaths = ['/home/cube/React_Projects/Video_Engine/server/public/editedtemp/tempBapuZimidar/0_part.mp4', '/home/cube/React_Projects/Video_Engine/server/public/editedtemp/tempBapuZimidar/1_part.mp4']*/
 
+    croppedVideoPaths.forEach(path => {
+      data += `file '${path}'\n`
+    })
+
+    const written = await writeFile(pathTextFile, data)
+    if (written === undefined || written.toString().indexOf('error') > 0) {
+      throw new Error('Error in writing paths to file')
+    }
+    return await new Promise((resolve, reject) =>
+      ffmpeg(pathTextFile)
+        .on('error', function (err) {
+          console.log('An error occurred in merging: ' + err.message)
+          resolve(false)
+        })
+        .on('end', function () {
+          console.log('Merging finished !')
+          resolve(finalVideoPath + ".mp4")
+        })
+        .inputOptions(
+          '-f', 'concat',
+          '-safe', '0'
+        )
+        .outputOptions('-c copy')
+        .save(finalVideoPath + ".mp4")
+    )
     //croppedVideoPaths.map(unlink)
   } catch (err) {
     console.log("error in mergevideo async", err)
-    throw Error('some error occurred in cropping video scenes')
+    throw new Error('some error occurred in cropping video scenes')
   }
 }
 
@@ -352,14 +293,48 @@ app.get('/download', (req, res) => {
   }).pipe(res);*/
 })
 
+app.get('/downloadVideo', async (req, res) => {
+  const actualFilePath = req.query['actualFilePath']
+  const videoPath = req.query['url']
+  const index = actualFilePath.lastIndexOf('/')
+  const fileName = actualFilePath.substr(index, actualFilePath.length)  
+    const dest = path.join(__dirname, "temp")
+    if (!fs.existsSync(dest)) {
+      fs.mkdirSync(dest)
+      console.log("temporary directory created for storing the final video to different location")
+    }
+    
+    console.log("fileName", fileName, "new path", path.join(dest, fileName))
+
+    const copy = await new Promise((resolve, reject) => {
+      fs.copyFile(actualFilePath, path.join(dest, fileName), (err) => {
+        if (err){
+          resolve(false)
+          throw err
+        } 
+        resolve(true)
+      })
+    })
+
+    /*fs.rename(actualFilePath, dest + fileName, (err)=>{
+      if(err) throw err
+      else console.log('Successfully moved to non-static dir')
+    })*/
+
+    res.setHeader('Content-type', 'video/mp4')
+    res.setHeader('Content-disposition', 'attachment; filename=' + fileName)
+    //console.log("inside download", actualPathFile, stat)
+    res.download(path.join(dest, fileName))
+})
 
 app.post('/mergeVideos', (req, res) => {
   videoData = []
   desiredVideoWidth = req.query['desiredVideoWidth']
   desiredVideoHeight = req.query['desiredVideoHeight']
   const videoObjects = req.body.videoObjects
-  if(videoObjects === undefined || req.body.videoObjects === undefined || videoObjects.length === 0){
-    return res.status(400).send({ error : "Please send the payload" })
+  console.log(videoObjects)
+  if (videoObjects === undefined || req.body.videoObjects === undefined || videoObjects.length === 0) {
+    return res.status(400).send({ error: "Please check some video" })
   }
 
   /*var URL = req.query['videoPath']
@@ -369,17 +344,18 @@ app.post('/mergeVideos', (req, res) => {
   videoName = URL.substring(index, extensionIndex).replace(/[^a-zA-Z]/g, '')
   const videoNameWithExtension = videoName + extensionName*/
 
-  mergeVideoAsync(videoObjects).then((finalVideoPath) => {
-    console.log("result of splitting and merging is ", finalVideoPath)
+  mergeVideoAsync(videoObjects).then((resultPath) => {
+    const index = resultPath.lastIndexOf('/')
+    const finalVideoPath = path.join(url + ":" + port, resultPath.substring(index, resultPath.length))
+    //console.log("final merged video path is ", resultPath, "and required path is", finalVideoPath)
     res.status(200)
     res.send({
-      splittedVideosData: finalVideoPath
+      videoPath: finalVideoPath,
+      actualFilePath : resultPath
     })
   })
-  .catch(err => res.status(400).send({error: err}))
-
+    .catch(err => res.status(400).send({ error: err }))
 })
-
 
 app.get('/upload', (req, res) => {
   videoData = []
@@ -432,17 +408,17 @@ app.get('/upload', (req, res) => {
           splittedVideosData: videoData
         })
       })
-      .catch(err => res.status(400).send({error: err}))
+        .catch(err => res.status(400).send({ error: err }))
 
     } else if (segmentSetting === "range duration") {
       console.log("range")
       videoRange = []
       videoRange = JSON.parse(segmentValue)
-      
+
       console.log(videoRange)
 
       for (let i = 0; i < videoRange.length; i++) {
-        if (videoRange[i][1] > videoDuration) 
+        if (videoRange[i][1] > videoDuration)
           return res.status(400).send({
             error: "Second parameter of range cannot be greater than video duration"
           })
@@ -455,7 +431,7 @@ app.get('/upload', (req, res) => {
           splittedVideosData: videoData
         })
       })
-      .catch(err => res.status(400).send({error: err}))
+        .catch(err => res.status(400).send({ error: err }))
 
       //return res.status(200).send(req.file)
     } else if (segmentSetting === "number of segments") {
@@ -486,13 +462,11 @@ app.get('/upload', (req, res) => {
           splittedVideosData: videoData
         })
       })
-      .catch(err => res.status(400).send({error: err}))
+        .catch(err => res.status(400).send({ error: err }))
 
     }
   })
 })
-
-
 
 app.get('/getUrl', (req, res) => {
   const url = ["http://127.0.0.1:3333/tempAshKingMTVUnpluggedSeasonILoveYou/0_part.mp4",

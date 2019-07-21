@@ -17,12 +17,11 @@ import './App.css'
   { url: "http:/127.0.0.1:3333/tempBapuZimidarJassiGillReplayReturnOfMelodyLatestPunjabiSongs/1_part.mp4", startTime: 100, endTime: 100, videoHeight: "", videoWidth: "", videoAspectRatio: '' },
   { url: "http:/127.0.0.1:3333/tempBapuZimidarJassiGillReplayReturnOfMelodyLatestPunjabiSongs/2_part.mp4", startTime: 200, endTime: 27.461667000000006, videoHeight: "", videoWidth: "", videoAspectRatio: '' }
 ]*/
-
 const style = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  border: "solid 2px #ddd",
+  border: "solid 2px #E74B29",
   background: 'rgba(171, 205, 239, 0)'
 }
 
@@ -41,31 +40,10 @@ class App extends Component {
       segmentSetting: '',
       segmentValue: '',
       desiredVideoWidth: '',
-      desiredVideoHeight: ''
+      desiredVideoHeight: '',
+      finalVideoPath: '',
+      actualFilePath : ''
     }
-  }
-
-  timeOut = () => setTimeout(() => {
-    const url = '//assets.codepen.io/images/codepen-logo.svg';
-    this.downloadFile(url)
-  }, 2000)
-
-  downloadFile = (sUrl) => {
-    var link = document.createElement('a');
-    link.href = sUrl;
-    link.setAttribute('target', '_blank');
-    var fileName = sUrl.substring(sUrl.lastIndexOf('/') + 1, sUrl.length);
-    link.download = fileName;
-    if (document.createEvent) {
-      var e = document.createEvent('MouseEvents');
-      e.initEvent('click', true, true);
-      link.dispatchEvent(e);
-      return true;
-    }
-    if (sUrl.indexOf('?') === -1) sUrl += '?download'
-
-    window.open(sUrl, '_blank');
-    return true;
   }
 
   setValue(e) {
@@ -142,21 +120,11 @@ class App extends Component {
         if (result.error) {
           throw new Error(result.error)
         }
-
         toast.info("Videos are splitted successfully", { position: toast.POSITION.TOP_CENTER })
+        const videoDataArray = this.prepareVideoArray(result.splittedVideosData)
         this.setState({
-          url: '',
-          fileUploaded: false,
-          segmentSetting: '',
-          segmentValue: '',
-          loaded: 0
-        }, () => {
-          const videoDataArray = this.prepareVideoArray(result.splittedVideosData)
-          this.setState({
-            videoData: videoDataArray
-          })
+          videoData: videoDataArray
         })
-
       }).catch(error => {
         toast.info(error, { position: toast.POSITION.TOP_CENTER })
         this.setState({
@@ -192,25 +160,27 @@ class App extends Component {
       })
       .then(response => response.json())
       .then(result => {
-        if (result.error) {
-          throw new Error("Some error occured")
+          console.log(result)
+        if (result.error != undefined || result.statusCode === 400)  {
+          throw Error(result.error)
         }
         toast.info("Videos are merged successfully", { position: toast.POSITION.TOP_CENTER })
         this.setState({
-          finalVideo: result.videoPath
+          finalVideoPath: "http://" + result.videoPath,
+          actualFilePath : result.actualFilePath
         })
 
       }).catch(error => {
         toast.info(error, { position: toast.POSITION.TOP_CENTER })
-        this.setState({
-          url: '',
-          selectedFile: null,
-          segmentSetting: '',
-          segmentValue: '',
-          loaded: 0,
-          desiredVideoWidth: '',
-          desiredVideoHeight: ''
-        })
+        // this.setState({
+        //   url: '',
+        //   selectedFile: null,
+        //   segmentSetting: '',
+        //   segmentValue: '',
+        //   loaded: 0,
+        //   desiredVideoWidth: '',
+        //   desiredVideoHeight: ''
+        // })
       })
 
   }
@@ -224,15 +194,9 @@ class App extends Component {
   handleCheckChildElement = (event) => {
     let videosInfo = this.state.videoData
     videosInfo.forEach((videoInfo) => {
-
-      console.log(event, "videoInfo.id", videoInfo.id, "event.target.value", event.target.value)
-
-      if (videoInfo.id === event.target.value)
-        videoInfo.isChecked = event.target.checked
+      if (videoInfo.id == event.target.value) videoInfo.isChecked = event.target.checked
     })
     this.setState({ videoData: videosInfo })
-    /*let videosInfo = this.state.videoData
-    this.setState({ videoData: this.state.videoData.map(v => {return  (v.id === event.target.value) ? {...v, isChecked : event.target.checked} : v}) })*/
   }
 
   onDragStop = (videoDataId, event, delta) => {
@@ -265,8 +229,8 @@ class App extends Component {
 
   render() {
     console.log(this.state.videoData)
-    const { videoData } = this.state
 
+    const { videoData, finalVideoPath } = this.state
     return (
       <div className="text-center" >
         <h1 className="heading">Video Engine !</h1>
@@ -334,6 +298,7 @@ class App extends Component {
             {
               videoData.length > 0 &&
               <div>
+
                 <div className="row">
                   <div className="col-8 text-center"><h6>Check and Uncheck All</h6></div>
                   <div className="col-4"><input type="checkbox" value="checkUncheckAll" onChange={this.handleAllChecked} /></div>
@@ -341,8 +306,10 @@ class App extends Component {
                 <ul style={{ listStyle: 'none' }}>
                   {
                     videoData.map((videoObject, index) => {
+                      const divHeight = parseInt(videoObject.videoHeight) + parseInt(this.state.desiredVideoHeight)
+                      const divWidth = parseInt(videoObject.videoWidth) + parseInt(this.state.desiredVideoWidth)
                       return (
-                        <div key={videoObject.id} style={{ display: 'flex', flexDirection: 'column', height: videoObject.height, width:videoObject.width }}>
+                        <div key={videoObject.id} style={{ display: 'flex', flexDirection: 'column', height: `${divHeight}px`, width: `${divWidth}px` }}>
 
                           <div style={{ height: videoObject.videoHeight, width: videoObject.videoWidth }}>
                             <video width={videoObject.videoWidth} height={videoObject.videoHeight} controls>
@@ -350,7 +317,6 @@ class App extends Component {
                             </video>
 
                             <Rnd
-                              key={videoObject.id}
                               ref={rnd => { this.rnd = rnd }}
                               style={style}
                               size={{ width: videoData[videoObject.id].width, height: videoData[videoObject.id].height }}
@@ -373,20 +339,21 @@ class App extends Component {
                             />
                           </div>
 
-                          <div key={videoObject.id}>
 
-                            <Form.Row key={videoObject.id}>
-                              <Form.Group as={Col} controlId="startTime">
-                                {/* {this.state.videoObject[videoData.id].isChecked? `required` : ''}  */}
-                                <Form.Control className="startTime-input pull-left" type="text" name="startTime" onChange={(e) => this.setStartTimeEndTime(e, videoObject.id)} value={videoData[videoObject.id].startTime} style={{ width: '100px' }} />
-                              </Form.Group>
-                              <Form.Group as={Col} controlId="endTime">
-                                <Form.Control className="endTime-input pull-right" type="text" name="endTime" onChange={(e) => this.setStartTimeEndTime(e, videoObject.id)} value={videoData[videoObject.id].endTime} style={{ width: '100px' }} />
-                              </Form.Group>
-                            </Form.Row>
+                          <Form.Row>
+                            <Form.Group as={Col} controlId="startTime">
+                              {/* {this.state.videoObject[videoData.id].isChecked? `required` : ''}  */}
+                              <Form.Control className="startTime-input pull-left" type="text" name="startTime" onChange={(e) => this.setStartTimeEndTime(e, videoObject.id)} value={videoData[videoObject.id].startTime} style={{ width: '100px' }} />
+                            </Form.Group>
+                            <Form.Group as={Col} controlId="endTime">
+                              <Form.Control className="endTime-input pull-right" type="text" name="endTime" onChange={(e) => this.setStartTimeEndTime(e, videoObject.id)} value={videoData[videoObject.id].endTime} style={{ width: '100px' }} />
+                            </Form.Group>
+                          </Form.Row>
 
-                            <div key={videoObject.id}>
-                              <span><CheckBox handleCheckChildElement={this.handleCheckChildElement}   {...videoObject} /></span>
+                          <div className="row">
+                            <div className="col-4"></div>
+                            <div className="col-8" style={{ zIndex: '999' }}>
+                              <CheckBox handleCheckChildElement={this.handleCheckChildElement}   {...videoObject} />
                             </div>
                           </div>
 
@@ -400,6 +367,19 @@ class App extends Component {
             }
           </Form>
         </div>
+
+        {finalVideoPath && finalVideoPath != null && finalVideoPath != undefined &&
+          <div >
+            <video width={'100%'} height={'100%'} controls>
+              <source src={this.state.finalVideoPath} type="video/mp4" />Your browser does not support the video tag.
+          </video>
+            <br/ >
+
+            <button className="btn btn-primary" >
+              <a href={`http://127.0.0.1:3333/downloadVideo?url=${this.state.finalVideoPath}&actualFilePath=${this.state.actualFilePath}`} download>Download Video</a>
+            </button>
+          </div>
+        }
 
       </div>
     )
