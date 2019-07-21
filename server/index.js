@@ -1,8 +1,7 @@
 const express = require('express')
 const cors = require('cors')
-const ytdl = require('ytdl-core')
 const app = express();
-const fs = require('fs');
+const fs = require('fs')
 const http = require('http')
 const path = require('path')
 var multer = require('multer')    //handle files
@@ -134,15 +133,11 @@ const cropScenes = video => {
 
   let startTime = moment(video.startTime, 'HH:mm:ss').diff(moment().startOf('day'), 'seconds')    //Start video from this time
   let endTime = moment(video.endTime, 'HH:mm:ss').diff(moment().startOf('day'), 'seconds')  //End video at this time
-  //const out = path.join(__dirname,"public", `${Math.random().toString(13).slice(2)}.ts`)
   let cropCommand = 'crop=' + video.width + ':' + video.height + ':' + video.x + ':' + video.y
-
-  //console.log(videoPath, "   ",saveVideoToPath, `${desiredVideoWidth}x${desiredVideoHeight} and command is ${cropCommand}`)
 
   if (!fs.existsSync(editedTempFolder)) {
     fs.mkdirSync(editedTempFolder, 0777)
     if (!fs.existsSync(saveVideoToPathFolder)) {
-      //console.log("folder inside edit temp")
       fs.mkdirSync(saveVideoToPathFolder, 0777)
     }
   }
@@ -151,7 +146,6 @@ const cropScenes = video => {
     console.log("inside padding")
     return new Promise((resolve, reject) => {
       ffmpeg(videoPath)       //Input Video File
-        //.inputFormat("mp4")
         .audioCodec("libmp3lame")     // Audio Codec
         .videoCodec("libx264")        // Video Codec
         .setStartTime(startTime)       // Start Position
@@ -213,7 +207,6 @@ async function mergeVideoAsync(videoObjects) {
     let finalVideoPath = path.join(__dirname, "public", "finalVideo" + Math.random().toString(10).slice(2))
     const pathTextFile = path.join(__dirname, "public", "finalVideotxt" + Math.random().toString(10).slice(2) + ".txt")
     let data = 'ffconcat version 1.0\n'
-    //if (!fs.existsSync(finalVideoPath)) fs.mkdirSync(finalVideoPath)
 
     let croppedVideoPaths = await Promise.all(videoObjects.map(cropScenes))
     if (croppedVideoPaths === undefined || croppedVideoPaths === "") {
@@ -222,7 +215,6 @@ async function mergeVideoAsync(videoObjects) {
     croppedVideoPaths.filter(path => path != false)
 
     console.log(croppedVideoPaths)
-    /*croppedVideoPaths = ['/home/cube/React_Projects/Video_Engine/server/public/editedtemp/tempBapuZimidar/0_part.mp4', '/home/cube/React_Projects/Video_Engine/server/public/editedtemp/tempBapuZimidar/1_part.mp4']*/
 
     croppedVideoPaths.forEach(path => {
       data += `file '${path}'\n`
@@ -316,14 +308,8 @@ app.get('/downloadVideo', async (req, res) => {
       })
     })
 
-    /*fs.rename(actualFilePath, dest + fileName, (err)=>{
-      if(err) throw err
-      else console.log('Successfully moved to non-static dir')
-    })*/
-
     res.setHeader('Content-type', 'video/mp4')
     res.setHeader('Content-disposition', 'attachment; filename=' + fileName)
-    //console.log("inside download", actualPathFile, stat)
     res.download(path.join(dest, fileName))
 })
 
@@ -336,13 +322,6 @@ app.post('/mergeVideos', (req, res) => {
   if (videoObjects === undefined || req.body.videoObjects === undefined || videoObjects.length === 0) {
     return res.status(400).send({ error: "Please check some video" })
   }
-
-  /*var URL = req.query['videoPath']
-  var index = URL.lastIndexOf("/")
-  var extensionIndex = URL.lastIndexOf(".")
-  const extensionName = URL.substring(extensionIndex, URL.length)
-  videoName = URL.substring(index, extensionIndex).replace(/[^a-zA-Z]/g, '')
-  const videoNameWithExtension = videoName + extensionName*/
 
   mergeVideoAsync(videoObjects).then((resultPath) => {
     const index = resultPath.lastIndexOf('/')
@@ -467,78 +446,6 @@ app.get('/upload', (req, res) => {
     }
   })
 })
-
-app.get('/getUrl', (req, res) => {
-  const url = ["http://127.0.0.1:3333/tempAshKingMTVUnpluggedSeasonILoveYou/0_part.mp4",
-    "http://127.0.0.1:3333/tempAshKingMTVUnpluggedSeasonILoveYou/1_part.mp4",
-    "http://127.0.0.1:3333/tempAshKingMTVUnpluggedSeasonILoveYou/2_part.mp4"
-  ]
-
-  res.status(200)
-  res.send({
-    splittedVideoUrls: url
-  })
-
-})
-
-//Cropping Video:
-/*ffmpeg(videoPath) //Input Video File
-    .output('temp_video/cropped_video.mp4') // Output File
-    .audioCodec('libmp3lame') // Audio Codec
-    .videoCodec('libx264')  // Video Codec
-    .setStartTime(03) // Start Position
-    .setDuration(15) // Duration
-    .on('end', function (err) {
-        if (!err) {
-            console.log("Conversion Done");
-            //res.send('Video Cropping Done');
-        }
-    })
-    .on('error', function (err) {
-        console.log('error: ', +err);
-    })
-    .run();
-*/
-
-
-
-//app.use(express.static(path.join(__dirname, 'public')))
-
-/*app.get('/', function(req, res) {
-  res.sendFile(path.join(__dirname + '/index.htm'))
-})*/
-
-/*app.get('/video', function(req, res) {
-  const path = 'assets/sample.mp4'
-  const stat = fs.statSync(path)
-  const fileSize = stat.size
-  const range = req.headers.range
- 
-  if (range) {
-    const parts = range.replace(/bytes=/, "").split("-")
-    const start = parseInt(parts[0], 10)
-    const end = parts[1]? parseInt(parts[1], 10): fileSize-1
-    const chunksize = (end-start) + 1
-    const file = fs.createReadStream(path, {start, end})
-    const head = {
-      'Content-Range': `bytes ${start}-${end}/${fileSize}`,
-      'Accept-Ranges': 'bytes',
-      'Content-Length': chunksize,
-      'Content-Type': 'video/mp4',
-    }
-    res.writeHead(206, head)
-    file.pipe(res)
- 
-  } else {
-    const head = {
-      'Content-Length': fileSize,
-      'Content-Type': 'video/mp4',
-    }
-    res.writeHead(200, head)
-    fs.createReadStream(path).pipe(res)
-  }
-})*/
-
 
 app.listen(port, () => {
   console.log('Server Works !!! At port 3333');

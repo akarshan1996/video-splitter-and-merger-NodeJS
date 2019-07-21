@@ -1,8 +1,4 @@
-// Source: http://pixelscommander.com/en/javascript/javascript-file-download-ignore-content-type/
-//https://www.youtube.com/watch?v=lTTajzrSkCw
-import React, { Component } from 'react';
-//import SliderControlled from './ReactSlider'
-//import { RdxVideo, Overlay, Controls } from 'react-html5-video-editor'
+import React, { Component } from 'react'
 import { Form, Col, Button } from 'react-bootstrap'
 import { toast } from 'react-toastify'
 import CheckBox from './Checkbox'
@@ -10,13 +6,7 @@ import moment from 'moment'
 import { Rnd } from "react-rnd";
 import 'react-toastify/dist/ReactToastify.css'
 import './App.css'
-//import { stringify } from 'querystring';
 
-/*const videoDataExample = [
-  { url: "http:/127.0.0.1:3333/tempBapuZimidarJassiGillReplayReturnOfMelodyLatestPunjabiSongs/0_part.mp4", startTime: 0, endTime: 100, videoHeight: "", videoWidth: "", videoAspectRatio: '' },
-  { url: "http:/127.0.0.1:3333/tempBapuZimidarJassiGillReplayReturnOfMelodyLatestPunjabiSongs/1_part.mp4", startTime: 100, endTime: 100, videoHeight: "", videoWidth: "", videoAspectRatio: '' },
-  { url: "http:/127.0.0.1:3333/tempBapuZimidarJassiGillReplayReturnOfMelodyLatestPunjabiSongs/2_part.mp4", startTime: 200, endTime: 27.461667000000006, videoHeight: "", videoWidth: "", videoAspectRatio: '' }
-]*/
 const style = {
   display: "flex",
   alignItems: "center",
@@ -375,8 +365,9 @@ class App extends Component {
           </video>
             <br/ >
 
-            <button className="btn btn-primary" >
-              <a href={`http://127.0.0.1:3333/downloadVideo?url=${this.state.finalVideoPath}&actualFilePath=${this.state.actualFilePath}`} download>Download Video</a>
+            <button className="btn btn-primary">
+              Download Video
+              <a href={`http://127.0.0.1:3333/downloadVideo?url=${this.state.finalVideoPath}&actualFilePath=${this.state.actualFilePath}`} download></a>
             </button>
           </div>
         }
