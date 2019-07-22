@@ -130,16 +130,22 @@ const cropScenes = video => {
 
   const saveVideoToPathFolder = path.join(__dirname, "public", "editedtemp" + video.url.substring(21, video.url.lastIndexOf("/")))
   const editedTempFolder = saveVideoToPathFolder.substring(0, saveVideoToPathFolder.lastIndexOf("/"))
+  
+  //console.log("video directory ", videoPath, "", saveVideoToPath, "inside", saveVideoToPathFolder, "outside ", editedTempFolder)
 
   let startTime = moment(video.startTime, 'HH:mm:ss').diff(moment().startOf('day'), 'seconds')    //Start video from this time
   let endTime = moment(video.endTime, 'HH:mm:ss').diff(moment().startOf('day'), 'seconds')  //End video at this time
   let cropCommand = 'crop=' + video.width + ':' + video.height + ':' + video.x + ':' + video.y
-
   if (!fs.existsSync(editedTempFolder)) {
     fs.mkdirSync(editedTempFolder, 0777)
-    if (!fs.existsSync(saveVideoToPathFolder)) {
-      fs.mkdirSync(saveVideoToPathFolder, 0777)
-    }
+    // if (!fs.existsSync(saveVideoToPathFolder)) {
+    //   console.log("editedtemp for cropping inside created\n")
+    //   fs.mkdirSync(saveVideoToPathFolder, 0777)
+    // }
+  }
+  if (!fs.existsSync(saveVideoToPathFolder)) {
+    //console.log("editedtemp for cropping inside created\n")
+    fs.mkdirSync(saveVideoToPathFolder, 0777)
   }
 
   if (((video.x + video.width) > video.videoWidth) || ((video.y + video.height) > video.videoHeight)) {   //pad the video with x,y =0
@@ -204,8 +210,9 @@ function writeFile(pathTextFile, data) {
 
 async function mergeVideoAsync(videoObjects) {
   try {
-    let finalVideoPath = path.join(__dirname, "public", "finalVideo" + Math.random().toString(10).slice(2))
-    const pathTextFile = path.join(__dirname, "public", "finalVideotxt" + Math.random().toString(10).slice(2) + ".txt")
+    const randomNumber = Math.random().toString(10).slice(2)
+    let finalVideoPath = path.join(__dirname, "public", "finalVideo" + randomNumber)
+    const pathTextFile = path.join(__dirname, "public", "finalVideotxt" + randomNumber + ".txt")
     let data = 'ffconcat version 1.0\n'
 
     let croppedVideoPaths = await Promise.all(videoObjects.map(cropScenes))
@@ -214,33 +221,37 @@ async function mergeVideoAsync(videoObjects) {
     }
     croppedVideoPaths.filter(path => path != false)
 
-    console.log(croppedVideoPaths)
-
-    croppedVideoPaths.forEach(path => {
-      data += `file '${path}'\n`
-    })
-
-    const written = await writeFile(pathTextFile, data)
-    if (written === undefined || written.toString().indexOf('error') > 0) {
-      throw new Error('Error in writing paths to file')
+    console.log("croppedVideoPaths", croppedVideoPaths)
+    if(croppedVideoPaths != undefined || croppedVideoPaths != null || croppedVideoPaths != "" ){
+      croppedVideoPaths.forEach(path => {
+        data += `file '${path}'\n`
+      })
+  
+      const written = await writeFile(pathTextFile, data)
+      if (written === undefined || written.toString().indexOf('error') > 0) {
+        throw new Error('Error in writing paths to file')
+      }
+      return await new Promise((resolve, reject) =>
+        ffmpeg(pathTextFile)
+          .on('error', function (err) {
+            console.log('An error occurred while merging the video files present in txt: ' + err.message)
+            resolve(false)
+          })
+          .on('end', function () {
+            console.log('Merging finished !')
+            resolve(finalVideoPath + ".mp4")
+          })
+          .inputOptions(
+            '-f', 'concat',
+            '-safe', '0'
+          )
+          .outputOptions('-c copy')
+          .save(finalVideoPath + ".mp4")
+      )
+    }else {
+      return new Error('No video was cropped')
     }
-    return await new Promise((resolve, reject) =>
-      ffmpeg(pathTextFile)
-        .on('error', function (err) {
-          console.log('An error occurred in merging: ' + err.message)
-          resolve(false)
-        })
-        .on('end', function () {
-          console.log('Merging finished !')
-          resolve(finalVideoPath + ".mp4")
-        })
-        .inputOptions(
-          '-f', 'concat',
-          '-safe', '0'
-        )
-        .outputOptions('-c copy')
-        .save(finalVideoPath + ".mp4")
-    )
+    
     //croppedVideoPaths.map(unlink)
   } catch (err) {
     console.log("error in mergevideo async", err)
@@ -286,8 +297,9 @@ app.get('/download', (req, res) => {
 })
 
 app.get('/downloadVideo', async (req, res) => {
+  console.log("inside download video")
   const actualFilePath = req.query['actualFilePath']
-  const videoPath = req.query['url']
+  //const videoPath = req.query['url']
   const index = actualFilePath.lastIndexOf('/')
   const fileName = actualFilePath.substr(index, actualFilePath.length)  
     const dest = path.join(__dirname, "temp")
@@ -309,7 +321,7 @@ app.get('/downloadVideo', async (req, res) => {
     })
 
     res.setHeader('Content-type', 'video/mp4')
-    res.setHeader('Content-disposition', 'attachment; filename=' + fileName)
+    res.setHeader('Content-Disposition', 'attachment; filename=' + fileName)
     res.download(path.join(dest, fileName))
 })
 
@@ -357,7 +369,7 @@ app.get('/upload', (req, res) => {
     videoDuration = metadata.format.duration
     videoHeight = metadata.streams[0].height
     videoWidth = metadata.streams[0].width
-    videoAspectRatio = metadata.streams[0].display_aspect_ratio
+    videoAspectRatio = parseFloat(metadata.streams[0].display_aspect_ratio)
     let range = 0, eachSegmentDuration = 0
 
     console.log("segment value: ", segmentValue, " segment setting:", segmentSetting, " duration:", videoDuration, videoWidth, videoHeight, videoAspectRatio)
@@ -379,7 +391,6 @@ app.get('/upload', (req, res) => {
       if (range < videoDuration) videoRange.push([range, videoDuration])
 
       console.log(videoRange)
-      //console.log(videoRange[0][0],videoRange[0][1],videoRange[1][0],videoRange[1][1])
       splitVideo().then((splittingResult) => {
         console.log("result of splitting is ", splittingResult)
         res.status(200)
@@ -405,6 +416,7 @@ app.get('/upload', (req, res) => {
 
       splitVideo().then((splittingResult) => {
         console.log("result of splitting is ", splittingResult)
+        console.log(videoData)
         res.status(200)
         res.send({
           splittedVideosData: videoData
@@ -420,18 +432,18 @@ app.get('/upload', (req, res) => {
       segmentValue = parseFloat(segmentValue)
       eachSegmentDuration = parseFloat(videoDuration / parseInt(segmentValue))
       endValue = eachSegmentDuration
-      //console.log("eachSegmentDuration",eachSegmentDuration, "endValue",endValue, "videoname",videoName, "videoNameWithExtension", videoNameWithExtension)
       if (segmentValue > videoDuration) {
         return res.status(400).send({
           error: "Segment value cannot be greater than video duration"
         })
 
       }
-      while (endValue <= videoDuration) {
-        videoRange.push([range.toFixed(4), endValue.toFixed(4)])
+      while (parseFloat(endValue) <= parseFloat(videoDuration)) {
+        videoRange.push([range.toFixed(3), endValue.toFixed(3)])
         range = range + eachSegmentDuration
         endValue = range + eachSegmentDuration
       }
+
       //console.log(videoRange)
 
       splitVideo().then((splittingResult) => {

@@ -6,34 +6,19 @@ Accept: application/json
 { 
 	"videoObjects":
 	[ 
-		{ 
-			"id": 0,
-			"url": "http://127.0.0.1:3333/tempBapuZimidarJassiGillReplayReturnOfMelodyLatestPunjabiSongs/0_part.mp4",
-			"isChecked": true,
-			"value": 0,
-			"x": 185,
-			"y": 74,
-			"width": 245,
-			"height": 163,
-			"videoWidth": 640,
-			"videoHeight": 360,
-			"videoAspectRatio": "16:9",
-			"startTime": "00:00:00",
-			"endTime": "00:00:06" 
-		},
-		{ 	"id": 1,
-			"url":"http://127.0.0.1:3333/tempBapuZimidarJassiGillReplayReturnOfMelodyLatestPunjabiSongs/1_part.mp4",
-			"isChecked": true,
-			"value": 1,
-			"x": 182,
-			"y": 63,
-			"width": 170,
-			"height": 120,
-			"videoWidth": 640,
-			"videoHeight": 360,
-			"videoAspectRatio": "16:9",
-			"startTime": "00:00:00",
-			"endTime": "00:00:09" 
-		} 
+		{ "id": 0,
+		"url": "http://127.0.0.1:3333/tempaafebbfafaad/0_part.mp4",
+		"isChecked": true,
+		"value": 0,
+		"x": 241,
+		"y": 317,
+		"width": 207,
+		"height": 413,
+		"videoWidth": 620,
+		"videoHeight": 1104,
+		"videoAspectRatio": "N/A",
+		"startTime": '00:00:00',
+		"endTime": '00:00:05' 
+		}
 	]
 }

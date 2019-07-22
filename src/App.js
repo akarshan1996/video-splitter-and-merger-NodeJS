@@ -14,6 +14,7 @@ const style = {
   border: "solid 2px #E74B29",
   background: 'rgba(171, 205, 239, 0)'
 }
+const url = "http://127.0.0.1:", port = 3333
 
 toast.configure({
   autoClose: 2000,
@@ -32,7 +33,7 @@ class App extends Component {
       desiredVideoWidth: '',
       desiredVideoHeight: '',
       finalVideoPath: '',
-      actualFilePath : ''
+      actualFilePath: ''
     }
   }
 
@@ -51,12 +52,14 @@ class App extends Component {
   }
 
   sendURL = () => {
-    toast.info("Please wait till the video downloads !", { position: toast.POSITION.TOP_CENTER })
 
     fetch(`http://localhost:3333/download?URL=${this.state.url}`, { method: 'GET' })
       //fetch(`http://localhost:3333/getUrl`, { method: 'GET' })
       .then(res => res.json()).then(result => {
-
+        if(result.statusCode === 400 || result === "" || result === null || result === undefined){
+          throw new Error(result)
+        }
+        toast.info("Please wait till the video downloads !", { position: toast.POSITION.TOP_CENTER })
         this.setState({
           //splittedVideoUrls: result.splittedVideoUrls,
           url: '',
@@ -84,11 +87,11 @@ class App extends Component {
       videoObject['value'] = i
       videoObject['x'] = 0
       videoObject['y'] = 0
-      videoObject['width'] = this.state.desiredVideoWidth
-      videoObject['height'] = this.state.desiredVideoHeight
+      videoObject['width'] = parseInt(this.state.desiredVideoWidth)
+      videoObject['height'] = parseInt(this.state.desiredVideoHeight)
       videoObject['videoWidth'] = splittedVideosData[i]['videoWidth']
       videoObject['videoHeight'] = splittedVideosData[i]['videoHeight']
-      videoObject['videoAspectRatio'] = splittedVideosData[i]['videoAspectRatio']
+      videoObject['videoAspectRatio'] = splittedVideosData[i]['videoAspectRatio'] || 0
       /*videoObject['startTime'] = moment("1900-01-01 00:00:00").add(splittedVideosData[i]['startTime'], 'seconds').format("HH:mm:ss")
       videoObject['endTime'] = moment("1900-01-01 00:00:00").add(splittedVideosData[i]['endTime'], 'seconds').format("HH:mm:ss")*/
       videoObject['startTime'] = moment("1900-01-01 00:00:00").add(splittedVideosData[i]['startTime'], 'seconds').format("HH:mm:ss")
@@ -102,14 +105,15 @@ class App extends Component {
     e.preventDefault()
     toast.info("Please wait till other popup appears !", { position: toast.POSITION.TOP_CENTER })
 
-    fetch("http://127.0.0.1:3333/upload?segmentSetting=" + this.state.segmentSetting + "&segmentValue=" + this.state.segmentValue + "&videoPath="
+    fetch(url + port + "/upload?segmentSetting=" + this.state.segmentSetting + "&segmentValue=" + this.state.segmentValue + "&videoPath="
       + this.state.mainVideoPath + "&desiredVideoWidth=" + this.state.desiredVideoWidth + "&desiredVideoHeight=" + this.state.desiredVideoHeight
       , { method: 'GET' })
       .then(response => response.json())
       .then(result => {
-        if (result.error) {
-          throw new Error(result.error)
+        if(result.statusCode === 400 || result === "" || result === null || result === undefined || result.error){
+          throw new Error(result)
         }
+        console.log("result of upload api:", result)
         toast.info("Videos are splitted successfully", { position: toast.POSITION.TOP_CENTER })
         const videoDataArray = this.prepareVideoArray(result.splittedVideosData)
         this.setState({
@@ -132,47 +136,52 @@ class App extends Component {
 
   onMergeVideos = (e) => {
     e.preventDefault()
-    let videoDataToBePosted = this.state.videoData.filter(videoObject => videoObject.isChecked === true)
+    this.setState({
+      finalVideoPath: '',
+      actualFilePath: ''
+    }, () => {
+      let videoDataToBePosted = this.state.videoData.filter(videoObject => videoObject.isChecked === true)
 
-    toast.info("Please wait while merging happens :)", { position: toast.POSITION.TOP_CENTER })
+      toast.info("Please wait while merging happens :)", { position: toast.POSITION.TOP_CENTER })
 
-    fetch("http://127.0.0.1:3333/mergeVideos?&desiredVideoWidth=" + this.state.desiredVideoWidth + "&desiredVideoHeight=" + this.state.desiredVideoHeight
-      , {
-        method: 'POST',
-        mode: 'cors',
-        headers: new Headers({
-          'Request-Method': 'POST',
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        }), body: JSON.stringify({
-          videoObjects: videoDataToBePosted
-        }),
-      })
-      .then(response => response.json())
-      .then(result => {
+      fetch(url + port + "/mergeVideos?&desiredVideoWidth=" + this.state.desiredVideoWidth + "&desiredVideoHeight=" + this.state.desiredVideoHeight
+        , {
+          method: 'POST',
+          mode: 'cors',
+          headers: new Headers({
+            'Request-Method': 'POST',
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          }), body: JSON.stringify({
+            videoObjects: videoDataToBePosted
+          }),
+        })
+        .then(response => response.json())
+        .then(result => {
           console.log(result)
-        if (result.error != undefined || result.statusCode === 400)  {
-          throw Error(result.error)
-        }
-        toast.info("Videos are merged successfully", { position: toast.POSITION.TOP_CENTER })
-        this.setState({
-          finalVideoPath: "http://" + result.videoPath,
-          actualFilePath : result.actualFilePath
+          if (result.error != undefined || result.statusCode === 400) {
+            throw Error(result.error)
+          }
+          toast.info("Videos are merged successfully", { position: toast.POSITION.TOP_CENTER })
+          this.setState({
+            finalVideoPath: "http://" + result.videoPath,
+            actualFilePath: result.actualFilePath
+          })
+
+        }).catch(error => {
+          toast.info(error, { position: toast.POSITION.TOP_CENTER })
+          // this.setState({
+          //   url: '',
+          //   selectedFile: null,
+          //   segmentSetting: '',
+          //   segmentValue: '',
+          //   loaded: 0,
+          //   desiredVideoWidth: '',
+          //   desiredVideoHeight: ''
+          // })
         })
 
-      }).catch(error => {
-        toast.info(error, { position: toast.POSITION.TOP_CENTER })
-        // this.setState({
-        //   url: '',
-        //   selectedFile: null,
-        //   segmentSetting: '',
-        //   segmentValue: '',
-        //   loaded: 0,
-        //   desiredVideoWidth: '',
-        //   desiredVideoHeight: ''
-        // })
-      })
-
+    })
   }
 
   handleAllChecked = (event) => {
@@ -218,9 +227,10 @@ class App extends Component {
   }
 
   render() {
-    console.log(this.state.videoData)
+    //console.log(this.state.videoData)
+    //console.log(this.state.finalVideoPath)
 
-    const { videoData, finalVideoPath } = this.state
+    const { videoData } = this.state
     return (
       <div className="text-center" >
         <h1 className="heading">Video Engine !</h1>
@@ -356,19 +366,17 @@ class App extends Component {
               </div>
             }
           </Form>
+          <br />
         </div>
 
-        {finalVideoPath && finalVideoPath != null && finalVideoPath != undefined &&
+        {this.state.finalVideoPath && this.state.finalVideoPath != null && this.state.finalVideoPath != undefined &&
           <div >
-            <video width={'100%'} height={'100%'} controls>
+            <video width={this.state.desiredVideoWidth} height={this.state.desiredVideoWidth} controls>
               <source src={this.state.finalVideoPath} type="video/mp4" />Your browser does not support the video tag.
           </video>
-            <br/ >
-
-            <button className="btn btn-primary">
-              Download Video
-              <a href={`http://127.0.0.1:3333/downloadVideo?url=${this.state.finalVideoPath}&actualFilePath=${this.state.actualFilePath}`} download></a>
-            </button>
+            <br />
+            {/* <a href={`${url}${port}/downloadVideo?url=${this.state.finalVideoPath}&actualFilePath=${this.state.actualFilePath}`} download></a> */}
+            <a className="btn btn-primary" href={`${url}${port}/downloadVideo?actualFilePath=${this.state.actualFilePath}`} download> Download Video </a>
           </div>
         }
 
